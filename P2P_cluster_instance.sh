@@ -1086,7 +1086,7 @@ else
 
   printf "${C_BOLD}${C_GREEN}"
   printf "  ╔══════════════════════════════════════════════════════════╗\n"
-  printf "  ║   Node%s is configured and in the cluster.               ║\n" "$NodeRole"
+  printf "  ║   Node%s is configured and in the cluster.                ║\n" "$NodeRole"
   printf "  ║   Galera setup complete on this node.                    ║\n"
   printf "  ║   Wait for Node A to load the database.                  ║\n"
   printf "  ╚══════════════════════════════════════════════════════════╝\n"
