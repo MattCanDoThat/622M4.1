@@ -718,6 +718,9 @@ PromptIP() {
     else
       read -rp "  ${Label}: " Result
     fi
+    if [ -z "$Result" ]; then
+      continue  # silent re-prompt on empty input, no error message
+    fi
     if ValidateIP "$Result"; then
       echo "$Result"
       return 0
