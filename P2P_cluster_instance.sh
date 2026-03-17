@@ -567,6 +567,7 @@ DROP TABLE staging_products;
 ETLEOF
 
 chown "mbennett:mbennett" "/home/mbennett/etl.sql"
+chmod 644 "/home/mbennett/etl.sql"
 LogStatus "etl.sql generated"
 
 # ----------------------------
@@ -611,6 +612,7 @@ CREATE INDEX idx_mv_productID ON mv_ProductBuyers(productID);
 VIEWEOF
 
 chown "mbennett:mbennett" "/home/mbennett/views.sql"
+chmod 644 "/home/mbennett/views.sql"
 LogStatus "views.sql generated"
 
 LogStatus "Writing triggers.sql to disk"
@@ -665,6 +667,7 @@ WHERE OLD.currentPrice <> NEW.currentPrice;
 TRIGEOF
 
 chown "mbennett:mbennett" "/home/mbennett/triggers.sql"
+chmod 644 "/home/mbennett/triggers.sql"
 LogStatus "triggers.sql generated"
 
 # ----------------------------
@@ -706,6 +709,154 @@ ValidateIP() {
   # Returns 0 (true) if argument looks like a valid IPv4 address
   echo "$1" | grep -qE '^([0-9]{1,3}\.){3}[0-9]{1,3}$'
 }
+
+# ----------------------------
+# Resume Detection
+# If MariaDB is already running in a Galera cluster AND the config has been
+# written (no placeholders remain), skip straight to the database load menu.
+# This prevents accidentally nuking a running cluster by re-running the wizard.
+# ----------------------------
+ClusterSize=$(mariadb -sNe "SHOW STATUS LIKE 'wsrep_cluster_size';" 2>/dev/null | awk '{print $2}')
+ConfigReady=0
+if ! grep -q "NODE_A_IP" "$GaleraCnf" 2>/dev/null; then
+  ConfigReady=1
+fi
+
+if [ "${ClusterSize:-0}" -ge 1 ] && [ "$ConfigReady" -eq 1 ]; then
+  clear
+  echo ""
+  printf "${C_BOLD}╔══════════════════════════════════════════════════════════════╗${C_RESET}\n"
+  printf "${C_BOLD}║        GALERA CLUSTER — Setup Wizard                         ║${C_RESET}\n"
+  printf "${C_BOLD}║        FurnitureCluster (3-Node Multi-Master)                ║${C_RESET}\n"
+  printf "${C_BOLD}╚══════════════════════════════════════════════════════════════╝${C_RESET}\n"
+  echo ""
+  printf "  ${C_GREEN}✓ Cluster already running — wsrep_cluster_size = %s${C_RESET}\n" "${ClusterSize}"
+  printf "  ${C_DIM}  Galera config is already written. Skipping setup steps.${C_RESET}\n"
+  printf "  ${C_DIM}  Jumping directly to database load menu.${C_RESET}\n"
+  echo ""
+  read -rp "  Press Enter to continue..." _
+
+  # Pull node name from existing config for the menu header
+  ThisNodeName=$(grep "^wsrep_node_name" "$GaleraCnf" 2>/dev/null | awk -F'=' '{gsub(/ /,"",$2); print $2}' | tr -d '"'  || echo "This Node")
+  NodeRole=$(echo "$ThisNodeName" | sed 's/Node//')
+
+  # Jump directly to the database load menu (defined below)
+  # Set sA/sB/sC based on whether POS already exists
+  sA=0; sB=0; sC=0
+  PosExists=$(mariadb -sNe "SHOW DATABASES LIKE 'POS';" 2>/dev/null)
+  if [ -n "$PosExists" ]; then
+    sA=1
+    MbExists=$(mariadb -sNe "SELECT User FROM mysql.user WHERE User='mbennett';" 2>/dev/null)
+    [ -n "$MbExists" ] && sB=1
+    TrigExists=$(mariadb -sNe "SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA='POS';" 2>/dev/null | tr -d '[:space:]')
+    [ "${TrigExists:-0}" -gt 0 ] && sC=1
+  fi
+
+  CheckMark() { [ "$1" -eq 1 ] && printf "${C_GREEN}✓${C_RESET}" || printf "${C_DIM}·${C_RESET}"; }
+
+  DrawFinalMenu() {
+    clear
+    echo ""
+    printf "${C_BOLD}╔══════════════════════════════════════════════════════════════╗${C_RESET}\n"
+    printf "${C_BOLD}║        %s — Database Setup (Resume Mode)              ║${C_RESET}\n" "$ThisNodeName"
+    printf "${C_BOLD}║        Cluster size: %-39s ║${C_RESET}\n" "$(mariadb -sNe "SHOW STATUS LIKE 'wsrep_cluster_size';" 2>/dev/null | awk '{print $2}') nodes"
+    printf "${C_BOLD}╚══════════════════════════════════════════════════════════════╝${C_RESET}\n"
+    echo ""
+    printf "  ${C_CYAN}[1]${C_RESET} $(CheckMark $sA)  ${C_YELLOW}Run etl.sql${C_RESET} ${C_DIM}(builds POS database — replicates to all nodes)${C_RESET}\n"
+    printf "  ${C_CYAN}[2]${C_RESET} $(CheckMark $sB)  Create mbennett DB user + grant privileges ${C_DIM}(requires step 1)${C_RESET}\n"
+    printf "  ${C_CYAN}[3]${C_RESET} $(CheckMark $sC)  ${C_YELLOW}Run views.sql + triggers.sql${C_RESET} ${C_DIM}(requires step 2)${C_RESET}\n"
+    echo ""
+    printf "  ${C_CYAN}[r]${C_RESET}    Refresh menu / re-check cluster size\n"
+    printf "  ${C_CYAN}[q]${C_RESET}    Quit (return to prompt)\n"
+    echo ""
+  }
+
+  while true; do
+    DrawFinalMenu
+    read -rp "  Select step: " choice
+    case "$choice" in
+      1)
+        echo ""
+        printf "${C_BOLD}Running etl.sql (this will take a moment)...${C_RESET}\n"
+        printf "${C_DIM}Data loads and replicates synchronously to all nodes.${C_RESET}\n"
+        echo ""
+        mariadb --local-infile=1 < /home/mbennett/etl.sql
+        if [ $? -eq 0 ]; then
+          printf "${C_GREEN}  ✓ ETL complete. POS database built and replicated.${C_RESET}\n"
+          sA=1
+        else
+          printf "${C_RED}  ERROR: ETL failed. Check /var/log/user-data.log${C_RESET}\n"
+        fi
+        read -rp "  Press Enter to continue..." _
+        ;;
+      2)
+        echo ""
+        if [ $sA -ne 1 ]; then
+          printf "${C_RED}  BLOCKED: Run etl.sql first (step 1) — POS database must exist.${C_RESET}\n"
+        else
+          printf "${C_BOLD}Creating mbennett MariaDB user...${C_RESET}\n"
+          mariadb <<SQL
+CREATE USER IF NOT EXISTS 'mbennett'@'localhost' IDENTIFIED BY '${DbPass}';
+GRANT ALL PRIVILEGES ON POS.* TO 'mbennett'@'localhost';
+FLUSH PRIVILEGES;
+SQL
+          if [ $? -eq 0 ]; then
+            printf "${C_GREEN}  ✓ mbennett created with POS.* privileges.${C_RESET}\n"
+            sB=1
+          else
+            printf "${C_RED}  ERROR: Failed to create DB user.${C_RESET}\n"
+          fi
+        fi
+        read -rp "  Press Enter to continue..." _
+        ;;
+      3)
+        echo ""
+        if [ $sB -ne 1 ]; then
+          printf "${C_RED}  BLOCKED: Complete step 2 first.${C_RESET}\n"
+        else
+          printf "${C_BOLD}Running views.sql...${C_RESET}\n"
+          mariadb < /home/mbennett/views.sql
+          if [ $? -eq 0 ]; then
+            printf "${C_GREEN}  ✓ views.sql complete (view + materialized view + index).${C_RESET}\n"
+          else
+            printf "${C_RED}  ERROR: views.sql failed.${C_RESET}\n"
+          fi
+          echo ""
+          printf "${C_BOLD}Running triggers.sql...${C_RESET}\n"
+          mariadb < /home/mbennett/triggers.sql
+          if [ $? -eq 0 ]; then
+            printf "${C_GREEN}  ✓ triggers.sql complete (3 triggers created).${C_RESET}\n"
+            sC=1
+          else
+            printf "${C_RED}  ERROR: triggers.sql failed.${C_RESET}\n"
+          fi
+          if [ $sC -eq 1 ]; then
+            echo ""
+            printf "${C_BOLD}${C_GREEN}"
+            printf "  ╔══════════════════════════════════════════════════════════╗\n"
+            printf "  ║   All setup steps complete. FurnitureCluster is live.    ║\n"
+            printf "  ║   All 3 nodes are multi-master and accepting writes.     ║\n"
+            printf "  ║   Run: sudo mariadb                                      ║\n"
+            printf "  ║   Then: USE POS; SHOW TABLES;                            ║\n"
+            printf "  ╚══════════════════════════════════════════════════════════╝\n"
+            printf "${C_RESET}"
+          fi
+        fi
+        read -rp "  Press Enter to continue..." _
+        ;;
+      r|R) ;;
+      q|Q)
+        echo ""
+        printf "${C_DIM}  Exiting wizard. Run 'sudo galera-setup' to re-launch at any time.${C_RESET}\n\n"
+        exit 0
+        ;;
+      *)
+        printf "${C_RED}  Invalid selection.${C_RESET}\n"
+        read -rp "  Press Enter to continue..." _
+        ;;
+    esac
+  done
+fi
 
 PromptIP() {
   local Label="$1"
