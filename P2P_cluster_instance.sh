@@ -840,6 +840,10 @@ SQL
             printf "  ║   Then: USE POS; SHOW TABLES;                            ║\n"
             printf "  ╚══════════════════════════════════════════════════════════╝\n"
             printf "${C_RESET}"
+            echo ""
+            read -rp "  Press Enter to exit..." _
+            echo ""
+            exit 0
           fi
         fi
         read -rp "  Press Enter to continue..." _
@@ -847,19 +851,7 @@ SQL
       r|R) ;;
       q|Q)
         echo ""
-        if [ $sA -eq 1 ] && [ $sB -eq 1 ] && [ $sC -eq 1 ]; then
-          printf "${C_BOLD}${C_GREEN}"
-          printf "  ╔══════════════════════════════════════════════════════════╗\n"
-          printf "  ║   All setup steps complete. FurnitureCluster is live.    ║\n"
-          printf "  ║   All 3 nodes are multi-master and accepting writes.     ║\n"
-          printf "  ║   Run: sudo mariadb                                      ║\n"
-          printf "  ║   Then: USE POS; SHOW TABLES;                            ║\n"
-          printf "  ╚══════════════════════════════════════════════════════════╝\n"
-          printf "${C_RESET}"
-          echo ""
-        else
-          printf "${C_DIM}  Exiting wizard. Run 'sudo galera-setup' to re-launch at any time.${C_RESET}\n\n"
-        fi
+        printf "${C_DIM}  Exiting wizard. Run 'sudo galera-setup' to re-launch at any time.${C_RESET}\n\n"
         exit 0
         ;;
       *)
@@ -1212,10 +1204,14 @@ SQL
             printf "  ╔══════════════════════════════════════════════════════════╗\n"
             printf "  ║   All setup steps complete. FurnitureCluster is live.    ║\n"
             printf "  ║   All 3 nodes are multi-master and accepting writes.     ║\n"
-            printf "  ║   Run: mariadb -u mbennett -p                            ║\n"
+            printf "  ║   Run: sudo mariadb                                      ║\n"
             printf "  ║   Then: USE POS; SHOW TABLES;                            ║\n"
             printf "  ╚══════════════════════════════════════════════════════════╝\n"
             printf "${C_RESET}"
+            echo ""
+            read -rp "  Press Enter to exit..." _
+            echo ""
+            exit 0
           fi
         fi
         read -rp "  Press Enter to continue..." _
@@ -1225,19 +1221,7 @@ SQL
 
       q|Q)
         echo ""
-        if [ $sA -eq 1 ] && [ $sB -eq 1 ] && [ $sC -eq 1 ]; then
-          printf "${C_BOLD}${C_GREEN}"
-          printf "  ╔══════════════════════════════════════════════════════════╗\n"
-          printf "  ║   All setup steps complete. FurnitureCluster is live.    ║\n"
-          printf "  ║   All 3 nodes are multi-master and accepting writes.     ║\n"
-          printf "  ║   Run: sudo mariadb                                      ║\n"
-          printf "  ║   Then: USE POS; SHOW TABLES;                            ║\n"
-          printf "  ╚══════════════════════════════════════════════════════════╝\n"
-          printf "${C_RESET}"
-          echo ""
-        else
-          printf "${C_DIM}  Exiting wizard. Run 'sudo galera-setup' to re-launch at any time.${C_RESET}\n\n"
-        fi
+        printf "${C_DIM}  Exiting wizard. Run 'sudo galera-setup' to re-launch at any time.${C_RESET}\n\n"
         exit 0
         ;;
 
@@ -1270,7 +1254,6 @@ else
   printf "  ╚══════════════════════════════════════════════════════════╝\n"
   printf "${C_RESET}"
   echo ""
-  read -rp "  Press Enter to exit..." _
 fi
 WIZEOF
 
