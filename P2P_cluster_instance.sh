@@ -758,7 +758,7 @@ if [ "${ClusterSize:-0}" -ge 1 ] && [ "$ConfigReady" -eq 1 ]; then
     clear
     echo ""
     printf "${C_BOLD}╔══════════════════════════════════════════════════════════════╗${C_RESET}\n"
-    printf "${C_BOLD}║        %s — Database Setup (Resume Mode)              ║${C_RESET}\n" "$ThisNodeName"
+    printf "${C_BOLD}║        %s — Database Setup (Resume Mode)                     ║${C_RESET}\n" "$ThisNodeName"
     printf "${C_BOLD}║        Cluster size: %-39s ║${C_RESET}\n" "$(mariadb -sNe "SHOW STATUS LIKE 'wsrep_cluster_size';" 2>/dev/null | awk '{print $2}') nodes"
     printf "${C_BOLD}╚══════════════════════════════════════════════════════════════╝${C_RESET}\n"
     echo ""
@@ -847,7 +847,19 @@ SQL
       r|R) ;;
       q|Q)
         echo ""
-        printf "${C_DIM}  Exiting wizard. Run 'sudo galera-setup' to re-launch at any time.${C_RESET}\n\n"
+        if [ $sA -eq 1 ] && [ $sB -eq 1 ] && [ $sC -eq 1 ]; then
+          printf "${C_BOLD}${C_GREEN}"
+          printf "  ╔══════════════════════════════════════════════════════════╗\n"
+          printf "  ║   All setup steps complete. FurnitureCluster is live.    ║\n"
+          printf "  ║   All 3 nodes are multi-master and accepting writes.     ║\n"
+          printf "  ║   Run: sudo mariadb                                      ║\n"
+          printf "  ║   Then: USE POS; SHOW TABLES;                            ║\n"
+          printf "  ╚══════════════════════════════════════════════════════════╝\n"
+          printf "${C_RESET}"
+          echo ""
+        else
+          printf "${C_DIM}  Exiting wizard. Run 'sudo galera-setup' to re-launch at any time.${C_RESET}\n\n"
+        fi
         exit 0
         ;;
       *)
@@ -1213,7 +1225,19 @@ SQL
 
       q|Q)
         echo ""
-        printf "${C_DIM}  Exiting wizard. Run 'sudo galera-setup' to re-launch at any time.${C_RESET}\n\n"
+        if [ $sA -eq 1 ] && [ $sB -eq 1 ] && [ $sC -eq 1 ]; then
+          printf "${C_BOLD}${C_GREEN}"
+          printf "  ╔══════════════════════════════════════════════════════════╗\n"
+          printf "  ║   All setup steps complete. FurnitureCluster is live.    ║\n"
+          printf "  ║   All 3 nodes are multi-master and accepting writes.     ║\n"
+          printf "  ║   Run: sudo mariadb                                      ║\n"
+          printf "  ║   Then: USE POS; SHOW TABLES;                            ║\n"
+          printf "  ╚══════════════════════════════════════════════════════════╝\n"
+          printf "${C_RESET}"
+          echo ""
+        else
+          printf "${C_DIM}  Exiting wizard. Run 'sudo galera-setup' to re-launch at any time.${C_RESET}\n\n"
+        fi
         exit 0
         ;;
 
