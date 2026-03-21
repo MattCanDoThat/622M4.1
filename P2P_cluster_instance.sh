@@ -366,6 +366,9 @@ else
   useradd -m -s /bin/bash "mbennett"
   echo "Created Linux user mbennett"
 fi
+# useradd defaults to 750 on home directory — open to 755 so ubuntu user
+# can read SQL files without sudo bash -c workaround
+chmod 755 /home/mbennett
 LogStatus "Linux user step completed"
 
 # ----------------------------
